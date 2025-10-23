@@ -8,14 +8,6 @@ import {
 import { getStorage } from "firebase/storage";
 
 // Firebase configuration
-const firebaseConfig = {
-  apiKey: "AIzaSyDNTKJKOxfhYWmksi1l39bNN5GdUebuvXg",
-  authDomain: "chat-dojo-mvp.firebaseapp.com",
-  projectId: "chat-dojo-mvp",
-  storageBucket: "chat-dojo-mvp.firebasestorage.app",
-  messagingSenderId: "101546734233",
-  appId: "1:101546734233:web:6582e5b0173631dcde7e08",
-};
 
 // Initialize Firebase
 let app;
