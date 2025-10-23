@@ -1,0 +1,80 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(uid) {
+      return request.auth.uid == uid;
+    }
+    
+    function isParticipant(participants) {
+      return request.auth.uid in participants;
+    }
+    
+    // Users collection
+    match /users/{userId} {
+      // Anyone authenticated can read user profiles
+      allow read: if isAuthenticated();
+      
+      // Users can only create/update their own profile
+      allow create, update: if isAuthenticated() && isOwner(userId);
+      
+      // Users cannot delete profiles
+      allow delete: if false;
+    }
+    
+    // Conversations collection
+    match /conversations/{conversationId} {
+      // Users can only read conversations they're part of
+      allow read: if isAuthenticated() && isParticipant(resource.data.participants);
+      
+      // Users can create conversations if they're in the participants list
+      allow create: if isAuthenticated() && isParticipant(request.resource.data.participants);
+      
+      // Users can update conversations they're part of
+      allow update: if isAuthenticated() && isParticipant(resource.data.participants);
+      
+      // Users cannot delete conversations
+      allow delete: if false;
+    }
+    
+    // Messages collection
+    match /messages/{messageId} {
+      // Users can read messages from conversations they're part of
+      allow read: if isAuthenticated() && 
+        exists(/databases/$(database)/documents/conversations/$(resource.data.conversationId)) &&
+        isParticipant(get(/databases/$(database)/documents/conversations/$(resource.data.conversationId)).data.participants);
+      
+      // Users can create messages in conversations they're part of
+      allow create: if isAuthenticated() && 
+        isOwner(request.resource.data.senderId) &&
+        exists(/databases/$(database)/documents/conversations/$(request.resource.data.conversationId)) &&
+        isParticipant(get(/databases/$(database)/documents/conversations/$(request.resource.data.conversationId)).data.participants);
+      
+      // Users can update their own messages (for status updates)
+      allow update: if isAuthenticated() && 
+        (isOwner(resource.data.senderId) || 
+         isParticipant(get(/databases/$(database)/documents/conversations/$(resource.data.conversationId)).data.participants));
+      
+      // Users cannot delete messages
+      allow delete: if false;
+    }
+    
+    // Typing indicators collection
+    match /typing-indicators/{indicatorId} {
+      // Users can read typing indicators for conversations they're in
+      allow read: if isAuthenticated();
+      
+      // Users can create/update their own typing indicators
+      allow create, update: if isAuthenticated() && isOwner(request.resource.data.userId);
+      
+      // Users can delete their own typing indicators
+      allow delete: if isAuthenticated() && isOwner(resource.data.userId);
+    }
+  }
+}
+

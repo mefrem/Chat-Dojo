@@ -1,30 +1,42 @@
 {
   "expo": {
-    "name": "chat-dojo",
+    "name": "Chat Dojo",
     "slug": "chat-dojo",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.chatdojo.app",
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "Chat Dojo needs access to your microphone to record voice messages.",
+        "NSSpeechRecognitionUsageDescription": "Chat Dojo needs access to speech recognition for voice messages."
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "permissions": ["RECORD_AUDIO"],
+      "package": "com.chatdojo.app"
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      [
+        "expo-av",
+        {
+          "microphonePermission": "Allow Chat Dojo to access your microphone to record voice messages."
+        }
+      ]
+    ]
   }
 }
