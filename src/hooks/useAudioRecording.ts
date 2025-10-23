@@ -19,6 +19,17 @@ export function useAudioRecording() {
 
   const startRecording = async () => {
     try {
+      // Clean up any existing recording first
+      if (recording) {
+        try {
+          await recording.stopAndUnloadAsync();
+        } catch (cleanupError) {
+          console.log("Cleaned up stale recording");
+        }
+        setRecording(null);
+        setRecordingDuration(0);
+      }
+
       const hasPermission = await requestPermissions();
       if (!hasPermission) {
         throw new Error("Audio recording permission not granted");
@@ -45,7 +56,30 @@ export function useAudioRecording() {
       });
 
       return newRecording;
-    } catch (error) {
+    } catch (error: any) {
+      // Handle "already prepared" error gracefully
+      if (error?.message?.includes("already prepared")) {
+        console.log("Recorder already prepared, retrying...");
+        // Reset state and try once more
+        setRecording(null);
+        setIsRecording(false);
+        setRecordingDuration(0);
+        
+        // Reset audio mode and retry
+        try {
+          await Audio.setAudioModeAsync({
+            allowsRecordingIOS: false,
+          });
+          // Small delay to ensure cleanup
+          await new Promise((resolve) => setTimeout(resolve, 100));
+          // Retry once
+          return startRecording();
+        } catch (retryError) {
+          console.error("Retry failed:", retryError);
+          throw retryError;
+        }
+      }
+      
       console.error("Failed to start recording:", error);
       throw error;
     }
