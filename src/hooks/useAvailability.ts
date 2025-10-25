@@ -48,9 +48,17 @@ export function useAvailability() {
     // Clean up on unmount - set offline
     return () => {
       subscription.remove();
-      updateUserAvailability(user.uid, "offline").catch((error) => {
-        console.error("Error updating availability on unmount:", error);
-      });
+      // Check if user is still authenticated before updating
+      const currentUser = getCurrentUser();
+      if (currentUser) {
+        updateUserAvailability(currentUser.uid, "offline").catch((error) => {
+          // Silently fail if user is logged out - this is expected behavior
+          console.log(
+            "Could not update availability on unmount (user may be logged out):",
+            error.message
+          );
+        });
+      }
     };
   }, []);
 }
@@ -71,9 +79,17 @@ export function useConversationAvailability(conversationId?: string) {
 
     // Restore to online when leaving
     return () => {
-      updateUserAvailability(user.uid, "online").catch((error) => {
-        console.error("Error restoring to online:", error);
-      });
+      // Check if user is still authenticated before updating
+      const currentUser = getCurrentUser();
+      if (currentUser) {
+        updateUserAvailability(currentUser.uid, "online").catch((error) => {
+          // Silently fail if user is logged out
+          console.log(
+            "Could not restore to online (user may be logged out):",
+            error.message
+          );
+        });
+      }
     };
   }, [conversationId]);
 }
