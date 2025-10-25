@@ -17,6 +17,7 @@ import {
   Portal,
   RadioButton,
   Chip,
+  Avatar,
 } from "react-native-paper";
 import { useAuth } from "@/contexts/AuthContext";
 import { subscribeToConversations } from "@/services/firestore";
@@ -221,12 +222,42 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
     </Card>
   );
 
+  // Skeleton loader component
+  const renderSkeleton = () => (
+    <View style={styles.container}>
+      <Appbar.Header>
+        <Appbar.Content title="Chat Dojo" />
+        <Appbar.Action icon="account-cog" onPress={() => {}} disabled />
+      </Appbar.Header>
+
+      <ScrollView style={styles.scrollView}>
+        {/* Skeleton for Find Partner Section */}
+        <View style={styles.findPartnerSection}>
+          <View style={[styles.skeletonText, { width: 200, height: 24, alignSelf: 'center' }]} />
+          <View style={[styles.skeletonButton, { marginTop: 16 }]} />
+        </View>
+
+        {/* Skeleton for Conversations Section */}
+        <View style={styles.conversationsSection}>
+          <View style={[styles.skeletonText, { width: 180, height: 20, marginBottom: 16 }]} />
+          {[1, 2, 3].map((_, index) => (
+            <Card key={index} style={[styles.conversationCard, styles.skeletonCard]}>
+              <Card.Content>
+                <View style={styles.conversationHeader}>
+                  <View style={[styles.skeletonText, { width: 120, height: 18 }]} />
+                  <View style={[styles.skeletonText, { width: 60, height: 14 }]} />
+                </View>
+                <View style={[styles.skeletonText, { width: '80%', height: 16, marginTop: 8 }]} />
+              </Card.Content>
+            </Card>
+          ))}
+        </View>
+      </ScrollView>
+    </View>
+  );
+
   if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" />
-      </View>
-    );
+    return renderSkeleton();
   }
 
   return (
@@ -312,9 +343,30 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
           </Text>
           {conversations.length === 0 ? (
             <View style={styles.emptyState}>
-              <Text variant="bodyMedium" style={styles.emptyText}>
-                No conversations yet. Tap "Find Partner" to start!
+              <Text variant="displaySmall" style={styles.emptyIcon}>
+                🌟
               </Text>
+              <Text variant="headlineSmall" style={styles.emptyTitle}>
+                Ready to Connect?
+              </Text>
+              <Text variant="bodyMedium" style={styles.emptyText}>
+                You haven't started any conversations yet.{"\n"}
+                Tap "Find Partner" above to get matched!
+              </Text>
+              <View style={styles.emptyTips}>
+                <Text variant="labelMedium" style={styles.emptyTipsTitle}>
+                  💡 Tips for Great Conversations:
+                </Text>
+                <Text variant="bodySmall" style={styles.emptyTip}>
+                  • Use voice messages for deeper connection
+                </Text>
+                <Text variant="bodySmall" style={styles.emptyTip}>
+                  • AI will analyze sentiment & themes
+                </Text>
+                <Text variant="bodySmall" style={styles.emptyTip}>
+                  • Build streaks to form lasting habits
+                </Text>
+              </View>
             </View>
           ) : (
             <FlatList
@@ -387,9 +439,10 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   findPartnerSection: {
-    padding: 24,
+    padding: 20,
     alignItems: "center",
     backgroundColor: "#fff",
+    marginBottom: 12,
   },
   sectionTitle: {
     marginBottom: 16,
@@ -403,13 +456,13 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   timeCommitmentHint: {
-    marginTop: 8,
+    marginTop: 12,
     color: "#666",
   },
   contactsSection: {
-    padding: 16,
+    padding: 20,
     backgroundColor: "#fff",
-    marginTop: 8,
+    marginBottom: 12,
   },
   sectionHeader: {
     flexDirection: "row",
@@ -429,11 +482,12 @@ const styles = StyleSheet.create({
     alignSelf: "flex-start",
   },
   conversationsSection: {
-    padding: 16,
-    marginTop: 8,
+    padding: 20,
+    backgroundColor: "#fff",
   },
   conversationCard: {
     marginBottom: 12,
+    elevation: 2,
   },
   conversationHeader: {
     flexDirection: "row",
@@ -453,10 +507,40 @@ const styles = StyleSheet.create({
   emptyState: {
     padding: 32,
     alignItems: "center",
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    margin: 8,
+  },
+  emptyIcon: {
+    fontSize: 48,
+    marginBottom: 16,
+  },
+  emptyTitle: {
+    fontWeight: "bold",
+    marginBottom: 12,
+    textAlign: "center",
   },
   emptyText: {
     color: "#666",
     textAlign: "center",
+    lineHeight: 22,
+  },
+  emptyTips: {
+    marginTop: 24,
+    alignSelf: "stretch",
+    backgroundColor: "#f5f5f5",
+    padding: 16,
+    borderRadius: 8,
+  },
+  emptyTipsTitle: {
+    marginBottom: 12,
+    color: "#333",
+    fontWeight: "600",
+  },
+  emptyTip: {
+    color: "#666",
+    marginBottom: 6,
+    lineHeight: 20,
   },
   findingMatchContent: {
     alignItems: "center",
@@ -469,5 +553,21 @@ const styles = StyleSheet.create({
   findingMatchSubtext: {
     color: "#666",
     textAlign: "center",
+  },
+  // Skeleton loading styles
+  skeletonText: {
+    backgroundColor: "#e0e0e0",
+    borderRadius: 4,
+    opacity: 0.6,
+  },
+  skeletonButton: {
+    width: "80%",
+    height: 50,
+    backgroundColor: "#e0e0e0",
+    borderRadius: 12,
+    opacity: 0.6,
+  },
+  skeletonCard: {
+    opacity: 0.7,
   },
 });

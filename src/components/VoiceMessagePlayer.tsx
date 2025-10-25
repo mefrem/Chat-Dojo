@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { View, StyleSheet, TouchableOpacity } from "react-native";
-import { Text, Icon, ProgressBar } from "react-native-paper";
+import { Text, Icon, ProgressBar, ActivityIndicator } from "react-native-paper";
 import { Message } from "@/types";
 import { useAudioPlayback } from "@/hooks/useAudioPlayback";
 import { formatDuration, formatMessageTime } from "@/utils/formatTime";
@@ -110,11 +110,18 @@ export default function VoiceMessagePlayer({
             disabled={!isLoaded}
             style={styles.playButton}
           >
-            <Icon
-              source={isPlaying ? "pause" : "play"}
-              size={24}
-              color={isOwnMessage ? "#fff" : "#333"}
-            />
+            {!isLoaded ? (
+              <ActivityIndicator
+                size="small"
+                color={isOwnMessage ? "#fff" : "#6200ee"}
+              />
+            ) : (
+              <Icon
+                source={isPlaying ? "pause" : "play"}
+                size={24}
+                color={isOwnMessage ? "#fff" : "#333"}
+              />
+            )}
           </TouchableOpacity>
 
           <View style={styles.waveformContainer}>

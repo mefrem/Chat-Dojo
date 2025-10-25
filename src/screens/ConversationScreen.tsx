@@ -7,6 +7,9 @@ import {
   Platform,
   Alert,
   ScrollView,
+  TouchableOpacity,
+  Animated,
+  RefreshControl,
 } from "react-native";
 import {
   TextInput,
@@ -16,6 +19,8 @@ import {
   ActivityIndicator,
   Card,
   Chip,
+  Icon,
+  FAB,
 } from "react-native-paper";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -43,8 +48,8 @@ import {
   getScrollPosition,
   clearScrollPosition,
 } from "@/services/scrollPosition";
-import { httpsCallable } from "firebase/functions";
 import { functions } from "../../firebase/config";
+import { getFunctions, httpsCallable } from "firebase/functions";
 import { Button } from "react-native-paper";
 
 interface ConversationScreenProps {
@@ -92,6 +97,8 @@ export default function ConversationScreen({
   const [reflection, setReflection] = useState<Reflection | null>(null);
   const [generatingReflection, setGeneratingReflection] =
     useState<boolean>(false);
+  const [showScrollToBottom, setShowScrollToBottom] = useState<boolean>(false);
+  const [refreshing, setRefreshing] = useState<boolean>(false);
   const flatListRef = useRef<FlatList>(null);
   const previousMessageCountRef = useRef<number>(0);
 
@@ -335,6 +342,15 @@ export default function ConversationScreen({
     }
   };
 
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    // The Firebase listener will automatically update messages
+    // Just simulate a brief delay for UX
+    setTimeout(() => {
+      setRefreshing(false);
+    }, 1000);
+  };
+
   const renderMessage = ({ item }: { item: Message }) => {
     const isOwnMessage = item.senderId === user?.uid;
 
@@ -554,26 +570,77 @@ export default function ConversationScreen({
           </Card>
         </ScrollView>
       ) : (
-        <FlatList
-          ref={flatListRef}
-          data={messages}
-          renderItem={renderMessage}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.messageList}
-          onScroll={(event) => {
-            // Save scroll position periodically
-            const offset = event.nativeEvent.contentOffset.y;
-            saveScrollPosition(conversationId, offset);
-          }}
-          scrollEventThrottle={1000} // Save at most once per second
-          ListEmptyComponent={
-            <View style={styles.emptyState}>
-              <Text variant="bodyLarge" style={styles.emptyText}>
-                No messages yet. Start the conversation!
-              </Text>
-            </View>
-          }
-        />
+        <>
+          <FlatList
+            ref={flatListRef}
+            data={messages}
+            renderItem={renderMessage}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.messageList}
+            onScroll={(event) => {
+              // Save scroll position periodically
+              const offset = event.nativeEvent.contentOffset.y;
+              const contentHeight = event.nativeEvent.contentSize.height;
+              const layoutHeight = event.nativeEvent.layoutMeasurement.height;
+              const distanceFromBottom = contentHeight - offset - layoutHeight;
+              
+              // Show scroll-to-bottom button if scrolled up more than 100px
+              setShowScrollToBottom(distanceFromBottom > 100);
+              
+              saveScrollPosition(conversationId, offset);
+            }}
+            scrollEventThrottle={400} // Check scroll position ~2-3 times per second
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={handleRefresh}
+                tintColor="#6200ee"
+                colors={["#6200ee"]}
+              />
+            }
+            ListEmptyComponent={
+              <View style={styles.emptyState}>
+                <Text variant="displaySmall" style={styles.emptyIcon}>
+                  💬
+                </Text>
+                <Text variant="headlineSmall" style={styles.emptyTitle}>
+                  Start Your Conversation
+                </Text>
+                <Text variant="bodyMedium" style={styles.emptyText}>
+                  Break the ice with a voice message or text.{"\n"}
+                  Every great conversation starts somewhere!
+                </Text>
+                <View style={styles.emptyHints}>
+                  <View style={styles.emptyHint}>
+                    <Icon source="microphone" size={20} color="#6200ee" />
+                    <Text variant="bodySmall" style={styles.emptyHintText}>
+                      Tap mic to record voice
+                    </Text>
+                  </View>
+                  <View style={styles.emptyHint}>
+                    <Icon source="message-text" size={20} color="#6200ee" />
+                    <Text variant="bodySmall" style={styles.emptyHintText}>
+                      Type to send text
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            }
+          />
+          
+          {/* Scroll to Bottom Button */}
+          {showScrollToBottom && (
+            <FAB
+              icon="chevron-down"
+              style={styles.scrollToBottomButton}
+              onPress={() => {
+                flatListRef.current?.scrollToEnd({ animated: true });
+                setShowScrollToBottom(false);
+              }}
+              size="small"
+            />
+          )}
+        </>
       )}
 
       {!showInsights && (
@@ -595,7 +662,8 @@ const styles = StyleSheet.create({
   },
   offlineBanner: {
     backgroundColor: "#ff6b6b",
-    paddingVertical: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
     alignItems: "center",
   },
   offlineText: {
@@ -605,7 +673,8 @@ const styles = StyleSheet.create({
   },
   uploadProgress: {
     backgroundColor: "#4caf50",
-    paddingVertical: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
     alignItems: "center",
   },
   uploadText: {
@@ -614,14 +683,15 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   messageList: {
-    paddingVertical: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
     flexGrow: 1,
   },
   emptyState: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    padding: 32,
+    padding: 40,
   },
   emptyText: {
     textAlign: "center",
@@ -726,5 +796,33 @@ const styles = StyleSheet.create({
     marginTop: 24,
     alignSelf: "center",
     minWidth: 200,
+  },
+  scrollToBottomButton: {
+    position: "absolute",
+    right: 16,
+    bottom: 80,
+    backgroundColor: "#6200ee",
+  },
+  emptyIcon: {
+    fontSize: 48,
+    marginBottom: 16,
+  },
+  emptyTitle: {
+    fontWeight: "bold",
+    marginBottom: 12,
+    textAlign: "center",
+  },
+  emptyHints: {
+    marginTop: 24,
+    gap: 16,
+  },
+  emptyHint: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingHorizontal: 16,
+  },
+  emptyHintText: {
+    color: "#666",
   },
 });
