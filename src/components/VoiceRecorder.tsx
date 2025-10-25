@@ -67,31 +67,39 @@ export default function VoiceRecorder({
   if (isRecording) {
     return (
       <View style={styles.recordingContainer}>
-        <TouchableOpacity
-          onPress={handleCancelRecording}
-          style={styles.cancelButton}
-        >
-          <Icon source="close" size={24} color="#ff6b6b" />
-          <Text style={styles.cancelText}>Cancel</Text>
-        </TouchableOpacity>
+        <View style={styles.recordingContent}>
+          <Animated.View
+            style={[
+              styles.recordingIndicator,
+              { transform: [{ scale: pulseAnim }] },
+            ]}
+          >
+            <View style={styles.recordingDot} />
+          </Animated.View>
 
-        <Animated.View
-          style={[
-            styles.recordingIndicator,
-            { transform: [{ scale: pulseAnim }] },
-          ]}
-        >
-          <View style={styles.recordingDot} />
-        </Animated.View>
+          <View style={styles.recordingInfo}>
+            <Text style={styles.recordingLabel}>Recording...</Text>
+            <Text style={styles.duration}>
+              {formatDuration(recordingDuration)}
+            </Text>
+          </View>
+        </View>
 
-        <Text style={styles.duration}>{formatDuration(recordingDuration)}</Text>
+        <View style={styles.recordingActions}>
+          <TouchableOpacity
+            onPress={handleCancelRecording}
+            style={styles.cancelButton}
+          >
+            <Icon source="close" size={24} color="#ff6b6b" />
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          onPress={handleStopRecording}
-          style={styles.stopButton}
-        >
-          <Icon source="send" size={24} color="#6200ee" />
-        </TouchableOpacity>
+          <TouchableOpacity
+            onPress={handleStopRecording}
+            style={styles.stopButton}
+          >
+            <Icon source="send" size={28} color="#fff" />
+          </TouchableOpacity>
+        </View>
       </View>
     );
   }
@@ -121,38 +129,71 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     flex: 1,
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: "#fff8f8",
+    borderRadius: 24,
   },
-  cancelButton: {
+  recordingContent: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
-  },
-  cancelText: {
-    color: "#ff6b6b",
-    fontWeight: "bold",
+    flex: 1,
+    gap: 12,
   },
   recordingIndicator: {
     justifyContent: "center",
     alignItems: "center",
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#ffe0e0",
   },
   recordingDot: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
     backgroundColor: "#ff6b6b",
   },
+  recordingInfo: {
+    flex: 1,
+  },
+  recordingLabel: {
+    fontSize: 12,
+    color: "#666",
+    marginBottom: 2,
+  },
   duration: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: "bold",
-    color: "#333",
+    color: "#ff6b6b",
+    fontVariant: ["tabular-nums"],
+  },
+  recordingActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  cancelButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#fff",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#ff6b6b",
   },
   stopButton: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: "#e8f5e9",
+    backgroundColor: "#6200ee",
     justifyContent: "center",
     alignItems: "center",
+    elevation: 2,
+    shadowColor: "#6200ee",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
   },
 });

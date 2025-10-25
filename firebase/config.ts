@@ -3,9 +3,10 @@ import { getAuth } from "firebase/auth";
 import {
   getFirestore,
   initializeFirestore,
-  memoryLocalCache,
+  persistentLocalCache,
 } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
+import { getFunctions } from "firebase/functions";
 import {
   FIREBASE_API_KEY,
   FIREBASE_AUTH_DOMAIN,
@@ -49,11 +50,12 @@ try {
 
 export { auth };
 
-// Initialize Firestore with memory cache (React Native doesn't support IndexedDB)
+// Initialize Firestore with persistent cache for offline-first experience
+// persistentLocalCache() provides React Native-compatible local storage
 let db;
 try {
   db = initializeFirestore(app, {
-    localCache: memoryLocalCache(),
+    localCache: persistentLocalCache(),
   });
 } catch (error: any) {
   // If already initialized, just get the existing instance
@@ -63,5 +65,6 @@ try {
 export { db };
 
 export const storage = getStorage(app);
+export const functions = getFunctions(app);
 
 export default app;

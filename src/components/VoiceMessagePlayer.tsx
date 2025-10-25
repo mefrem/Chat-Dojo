@@ -4,6 +4,11 @@ import { Text, Icon, ProgressBar } from "react-native-paper";
 import { Message } from "@/types";
 import { useAudioPlayback } from "@/hooks/useAudioPlayback";
 import { formatDuration, formatMessageTime } from "@/utils/formatTime";
+import {
+  savePlaybackPosition,
+  getPlaybackPosition,
+  clearPlaybackPosition,
+} from "@/services/playback";
 
 interface VoiceMessagePlayerProps {
   message: Message;
@@ -14,9 +19,18 @@ export default function VoiceMessagePlayer({
   message,
   isOwnMessage,
 }: VoiceMessagePlayerProps) {
-  const { isPlaying, position, duration, loadAudio, playAudio, pauseAudio } =
-    useAudioPlayback();
+  const {
+    isPlaying,
+    position,
+    duration,
+    loadAudio,
+    playAudio,
+    pauseAudio,
+    seekAudio,
+  } = useAudioPlayback();
   const [isLoaded, setIsLoaded] = useState<boolean>(false);
+  const [positionRestored, setPositionRestored] = useState<boolean>(false);
+  const [showTranscription, setShowTranscription] = useState<boolean>(false);
 
   useEffect(() => {
     // Load audio when component mounts
@@ -24,6 +38,37 @@ export default function VoiceMessagePlayer({
       .then(() => setIsLoaded(true))
       .catch((error) => console.error("Error loading audio:", error));
   }, [message.content]);
+
+  // Restore playback position after audio loads
+  useEffect(() => {
+    if (isLoaded && !positionRestored && duration > 0) {
+      getPlaybackPosition(message.id).then((savedPosition) => {
+        if (savedPosition && savedPosition.position > 1000) {
+          // Only restore if more than 1 second
+          seekAudio(savedPosition.position / 1000);
+        }
+        setPositionRestored(true);
+      });
+    }
+  }, [isLoaded, duration, message.id, positionRestored]);
+
+  // Save playback position while playing
+  useEffect(() => {
+    if (isPlaying && position > 0 && duration > 0) {
+      const intervalId = setInterval(() => {
+        savePlaybackPosition(message.id, position * 1000, duration * 1000);
+      }, 3000); // Save every 3 seconds
+
+      return () => clearInterval(intervalId);
+    }
+  }, [isPlaying, position, duration, message.id]);
+
+  // Clear position when playback completes
+  useEffect(() => {
+    if (!isPlaying && position >= duration - 1 && duration > 0) {
+      clearPlaybackPosition(message.id);
+    }
+  }, [isPlaying, position, duration, message.id]);
 
   const handlePlayPause = () => {
     if (isPlaying) {
@@ -86,6 +131,41 @@ export default function VoiceMessagePlayer({
             </Text>
           </View>
         </View>
+
+        {/* Transcription (if available) */}
+        {message.transcription && (
+          <View style={styles.transcriptionContainer}>
+            <TouchableOpacity
+              onPress={() => setShowTranscription(!showTranscription)}
+              style={styles.transcriptionToggle}
+            >
+              <Icon
+                source={showTranscription ? "chevron-up" : "chevron-down"}
+                size={16}
+                color={isOwnMessage ? "#fff" : "#666"}
+              />
+              <Text
+                variant="labelSmall"
+                style={[
+                  styles.transcriptionLabel,
+                  isOwnMessage && styles.ownTranscriptionLabel,
+                ]}
+              >
+                {showTranscription ? "Hide" : "Show"} transcript
+              </Text>
+            </TouchableOpacity>
+            {showTranscription && (
+              <Text
+                style={[
+                  styles.transcriptionText,
+                  isOwnMessage && styles.ownTranscriptionText,
+                ]}
+              >
+                {message.transcription}
+              </Text>
+            )}
+          </View>
+        )}
 
         <View style={styles.footer}>
           <Text
@@ -169,5 +249,32 @@ const styles = StyleSheet.create({
   },
   ownTimestamp: {
     color: "#ddd",
+  },
+  transcriptionContainer: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255, 255, 255, 0.2)",
+  },
+  transcriptionToggle: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  transcriptionLabel: {
+    marginLeft: 4,
+    color: "#666",
+    fontSize: 11,
+  },
+  ownTranscriptionLabel: {
+    color: "#ddd",
+  },
+  transcriptionText: {
+    marginTop: 8,
+    fontSize: 13,
+    lineHeight: 18,
+    color: "#333",
+  },
+  ownTranscriptionText: {
+    color: "#f0f0f0",
   },
 });

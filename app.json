@@ -25,7 +25,14 @@
         "backgroundColor": "#ffffff"
       },
       "permissions": ["RECORD_AUDIO"],
-      "package": "com.chatdojo.app"
+      "package": "com.chatdojo.app",
+      "googleServicesFile": "./google-services.json"
+    },
+    "notification": {
+      "icon": "./assets/icon.png",
+      "color": "#6200ee",
+      "androidMode": "default",
+      "androidCollapsedTitle": "Chat Dojo"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -35,6 +42,14 @@
         "expo-av",
         {
           "microphonePermission": "Allow Chat Dojo to access your microphone to record voice messages."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#6200ee",
+          "sounds": []
         }
       ]
     ]

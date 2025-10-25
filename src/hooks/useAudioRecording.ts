@@ -41,8 +41,37 @@ export function useAudioRecording() {
         playsInSilentModeIOS: true,
       });
 
+      // Custom recording options optimized for voice
+      // AAC format with 128kbps bitrate for balance between quality and file size
+      // Target: ~1MB per minute of audio
+      const recordingOptions = {
+        android: {
+          extension: ".m4a",
+          outputFormat: Audio.AndroidOutputFormat.MPEG_4,
+          audioEncoder: Audio.AndroidAudioEncoder.AAC,
+          sampleRate: 44100,
+          numberOfChannels: 1, // Mono for voice
+          bitRate: 128000, // 128 kbps
+        },
+        ios: {
+          extension: ".m4a",
+          outputFormat: Audio.IOSOutputFormat.MPEG4AAC,
+          audioQuality: Audio.IOSAudioQuality.HIGH,
+          sampleRate: 44100,
+          numberOfChannels: 1, // Mono for voice
+          bitRate: 128000, // 128 kbps
+          linearPCMBitDepth: 16,
+          linearPCMIsBigEndian: false,
+          linearPCMIsFloat: false,
+        },
+        web: {
+          mimeType: "audio/webm",
+          bitsPerSecond: 128000,
+        },
+      };
+
       const { recording: newRecording } = await Audio.Recording.createAsync(
-        Audio.RecordingOptionsPresets.HIGH_QUALITY
+        recordingOptions
       );
 
       setRecording(newRecording);
@@ -64,7 +93,7 @@ export function useAudioRecording() {
         setRecording(null);
         setIsRecording(false);
         setRecordingDuration(0);
-        
+
         // Reset audio mode and retry
         try {
           await Audio.setAudioModeAsync({
@@ -79,7 +108,7 @@ export function useAudioRecording() {
           throw retryError;
         }
       }
-      
+
       console.error("Failed to start recording:", error);
       throw error;
     }

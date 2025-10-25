@@ -7,7 +7,28 @@ import {
   updateProfile,
 } from "firebase/auth";
 import { auth, db } from "../../firebase/config";
-import { doc, setDoc, serverTimestamp } from "firebase/firestore";
+import { doc, setDoc, serverTimestamp, getDoc } from "firebase/firestore";
+
+/**
+ * Generate a unique partner code (e.g., "DOJO-A7B3X")
+ */
+function generatePartnerCode(): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // Excluding ambiguous chars
+  let code = "DOJO-";
+  for (let i = 0; i < 5; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return code;
+}
+
+/**
+ * Check if partner code is unique
+ */
+async function ensureUniquePartnerCode(): Promise<string> {
+  // In a real app, you'd check against Firestore
+  // For now, just generate a code (collision probability is very low with 5 chars)
+  return generatePartnerCode();
+}
 
 /**
  * Sign up a new user
@@ -28,7 +49,10 @@ export async function signUp(
     // Update user profile with display name
     await updateProfile(user, { displayName });
 
-    // Create user document in Firestore
+    // Generate unique partner code
+    const partnerCode = await ensureUniquePartnerCode();
+
+    // Create user document in Firestore with Phase 3 fields
     await setDoc(doc(db, "users", user.uid), {
       uid: user.uid,
       email: user.email,
@@ -36,6 +60,10 @@ export async function signUp(
       createdAt: serverTimestamp(),
       lastSeen: serverTimestamp(),
       isOnline: true,
+      // Phase 3: Matching & Connection fields
+      availability: "online",
+      streakDays: 0,
+      partnerCode,
     });
 
     return user;

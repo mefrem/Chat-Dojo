@@ -49,10 +49,14 @@ export function useAudioPlayback() {
       setPosition(status.positionMillis / 1000);
       setDuration(status.durationMillis / 1000);
 
-      // Reset when finished
+      // Reset when finished and prepare for replay
       if (status.didJustFinish) {
         setIsPlaying(false);
         setPosition(0);
+        // Reset playback position so it can be played again
+        if (sound) {
+          sound.setPositionAsync(0).catch(console.error);
+        }
       }
     }
   };
@@ -61,7 +65,19 @@ export function useAudioPlayback() {
     if (!sound) return;
 
     try {
-      await sound.playAsync();
+      // Get current status to check if we're at the end
+      const status = await sound.getStatusAsync();
+
+      if (
+        status.isLoaded &&
+        status.positionMillis >= status.durationMillis - 100
+      ) {
+        // If at the end, replay from beginning
+        await sound.replayAsync();
+      } else {
+        // Otherwise just play
+        await sound.playAsync();
+      }
       setIsPlaying(true);
     } catch (error) {
       console.error("Error playing audio:", error);

@@ -305,6 +305,7 @@ export function subscribeToMessages(
         status: data.status || "sent",
         duration: data.duration,
         isRead: data.isRead || false,
+        transcription: data.transcription, // Include transcription field
       };
     });
     callback(messages);

@@ -25,6 +25,48 @@ service cloud.firestore {
       
       // Users cannot delete profiles
       allow delete: if false;
+      
+      // Reflections subcollection (Phase 2: AI Intelligence)
+      match /reflections/{reflectionId} {
+        // Users can only read their own reflections
+        allow read: if isAuthenticated() && isOwner(userId);
+        
+        // Only Cloud Functions can create/update reflections
+        allow create, update: if false;
+        
+        // Users cannot delete reflections
+        allow delete: if false;
+      }
+      
+      // Contacts subcollection (Phase 3: Matching & Connection)
+      match /contacts/{contactId} {
+        // Users can only read their own contacts
+        allow read: if isAuthenticated() && isOwner(userId);
+        
+        // Users can create/update/delete their own contacts
+        allow create, update, delete: if isAuthenticated() && isOwner(userId);
+      }
+      
+      // Notifications subcollection (Phase 4: Habit Building)
+      match /notifications/{notificationId} {
+        // Users can only read their own notifications
+        allow read: if isAuthenticated() && isOwner(userId);
+        
+        // Users and system can create notifications
+        allow create: if isAuthenticated();
+        
+        // Users can update/delete their own notifications
+        allow update, delete: if isAuthenticated() && isOwner(userId);
+      }
+      
+      // Push Tokens subcollection (Phase 4: Habit Building)
+      match /pushTokens/{tokenId} {
+        // Users can only read their own push tokens
+        allow read: if isAuthenticated() && isOwner(userId);
+        
+        // Users can create/update/delete their own push tokens
+        allow create, update, delete: if isAuthenticated() && isOwner(userId);
+      }
     }
     
     // Conversations collection
@@ -74,6 +116,35 @@ service cloud.firestore {
       
       // Users can delete their own typing indicators
       allow delete: if isAuthenticated() && isOwner(resource.data.userId);
+    }
+    
+    // Matching Queue collection (Phase 3: Matching & Connection)
+    match /matchingQueue/{requestId} {
+      // Users can read all pending match requests (for matching logic)
+      allow read: if isAuthenticated();
+      
+      // Users can create their own match requests
+      allow create: if isAuthenticated() && isOwner(request.resource.data.userId);
+      
+      // Users can update/delete their own match requests
+      allow update, delete: if isAuthenticated() && isOwner(resource.data.userId);
+    }
+    
+    // Direct Match Requests collection (Phase 3: Matching & Connection)
+    match /directMatchRequests/{requestId} {
+      // Users can read requests they sent or received
+      allow read: if isAuthenticated() && 
+        (isOwner(resource.data.fromUserId) || isOwner(resource.data.toUserId));
+      
+      // Users can create requests from themselves
+      allow create: if isAuthenticated() && isOwner(request.resource.data.fromUserId);
+      
+      // Users can update requests they received (to accept/decline)
+      allow update: if isAuthenticated() && isOwner(resource.data.toUserId);
+      
+      // Users can delete their own sent or received requests
+      allow delete: if isAuthenticated() && 
+        (isOwner(resource.data.fromUserId) || isOwner(resource.data.toUserId));
     }
   }
 }

@@ -1,5 +1,10 @@
 import React from "react";
-import { View, StyleSheet } from "react-native";
+import {
+  View,
+  StyleSheet,
+  ActivityIndicator,
+  TouchableOpacity,
+} from "react-native";
 import { Text, Icon } from "react-native-paper";
 import { Message } from "@/types";
 import { formatMessageTime } from "@/utils/formatTime";
@@ -7,11 +12,13 @@ import { formatMessageTime } from "@/utils/formatTime";
 interface MessageBubbleProps {
   message: Message;
   isOwnMessage: boolean;
+  onRetry?: () => void;
 }
 
 export default function MessageBubble({
   message,
   isOwnMessage,
+  onRetry,
 }: MessageBubbleProps) {
   const getStatusIcon = () => {
     switch (message.status) {
@@ -28,6 +35,8 @@ export default function MessageBubble({
     }
   };
 
+  const isUploading = message.status === "sending" && message.type === "voice";
+  const isFailed = message.status === "failed";
   const statusIcon = getStatusIcon();
 
   return (
@@ -55,12 +64,31 @@ export default function MessageBubble({
           <Text variant="labelSmall" style={styles.timestamp}>
             {formatMessageTime(message.timestamp)}
           </Text>
-          {isOwnMessage && statusIcon && (
-            <Icon
-              source={statusIcon}
-              size={14}
-              color={message.status === "read" ? "#4fc3f7" : "#999"}
-            />
+          {isOwnMessage && (
+            <>
+              {isUploading && <ActivityIndicator size="small" color="#999" />}
+              {isFailed && (
+                <TouchableOpacity
+                  onPress={onRetry}
+                  disabled={!onRetry}
+                  style={styles.failedContainer}
+                >
+                  <Text variant="labelSmall" style={styles.failedText}>
+                    Failed
+                  </Text>
+                  {onRetry && (
+                    <Icon source="reload" size={14} color="#f44336" />
+                  )}
+                </TouchableOpacity>
+              )}
+              {!isUploading && !isFailed && statusIcon && (
+                <Icon
+                  source={statusIcon}
+                  size={14}
+                  color={message.status === "read" ? "#4fc3f7" : "#999"}
+                />
+              )}
+            </>
           )}
         </View>
       </View>
@@ -107,6 +135,15 @@ const styles = StyleSheet.create({
   },
   timestamp: {
     color: "#ddd",
+    fontSize: 11,
+  },
+  failedContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  failedText: {
+    color: "#f44336",
     fontSize: 11,
   },
 });

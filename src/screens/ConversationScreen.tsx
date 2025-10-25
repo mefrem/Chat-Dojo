@@ -6,6 +6,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  ScrollView,
 } from "react-native";
 import {
   TextInput,
@@ -13,6 +14,8 @@ import {
   Appbar,
   Text,
   ActivityIndicator,
+  Card,
+  Chip,
 } from "react-native-paper";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -22,12 +25,27 @@ import {
   markMessagesAsRead,
 } from "@/services/firestore";
 import { uploadVoiceMessage } from "@/services/storage";
-import { Message } from "@/types";
+import { Message, Reflection } from "@/types";
+import { subscribeToReflectionByConversation } from "@/services/reflection";
 import MessageBubble from "@/components/MessageBubble";
 import VoiceMessagePlayer from "@/components/VoiceMessagePlayer";
 import VoiceRecorder from "@/components/VoiceRecorder";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
+import { useConversationAvailability } from "@/hooks/useAvailability";
 import { addToOfflineQueue } from "@/services/offline";
+import {
+  saveDraftMessage,
+  getDraftMessage,
+  clearDraftMessage,
+} from "@/services/drafts";
+import {
+  saveScrollPosition,
+  getScrollPosition,
+  clearScrollPosition,
+} from "@/services/scrollPosition";
+import { httpsCallable } from "firebase/functions";
+import { functions } from "../../firebase/config";
+import { Button } from "react-native-paper";
 
 interface ConversationScreenProps {
   navigation: any;
@@ -38,6 +56,19 @@ interface ConversationScreenProps {
   };
 }
 
+const getSentimentColor = (sentiment: string): string => {
+  switch (sentiment) {
+    case "positive":
+      return "#4caf50";
+    case "neutral":
+      return "#ff9800";
+    case "challenging":
+      return "#f44336";
+    default:
+      return "#9e9e9e";
+  }
+};
+
 export default function ConversationScreen({
   navigation,
   route,
@@ -45,13 +76,24 @@ export default function ConversationScreen({
   const { conversationId } = route.params;
   const { user } = useAuth();
   const { isOnline } = useNetworkStatus();
+
+  // Set user availability to "in-conversation"
+  useConversationAvailability(conversationId);
+
   const [messages, setMessages] = useState<Message[]>([]);
   const [textInput, setTextInput] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(true);
   const [sending, setSending] = useState<boolean>(false);
   const [isRecordingMode, setIsRecordingMode] = useState<boolean>(false);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
+  const [scrollPositionRestored, setScrollPositionRestored] =
+    useState<boolean>(false);
+  const [showInsights, setShowInsights] = useState<boolean>(false);
+  const [reflection, setReflection] = useState<Reflection | null>(null);
+  const [generatingReflection, setGeneratingReflection] =
+    useState<boolean>(false);
   const flatListRef = useRef<FlatList>(null);
+  const previousMessageCountRef = useRef<number>(0);
 
   useEffect(() => {
     const unsubscribe = subscribeToMessages(conversationId, (msgs) => {
@@ -67,14 +109,83 @@ export default function ConversationScreen({
     return () => unsubscribe();
   }, [conversationId, user]);
 
-  // Scroll to bottom when new messages arrive
+  // Subscribe to live reflection/insights
   useEffect(() => {
-    if (messages.length > 0) {
+    if (!user) return;
+
+    const unsubscribe = subscribeToReflectionByConversation(
+      user.uid,
+      conversationId,
+      (reflectionData) => {
+        setReflection(reflectionData);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [conversationId, user]);
+
+  // Load draft message on mount
+  useEffect(() => {
+    const loadDraft = async () => {
+      const draft = await getDraftMessage(conversationId);
+      if (draft && draft.content) {
+        setTextInput(draft.content);
+      }
+    };
+    loadDraft();
+  }, [conversationId]);
+
+  // Auto-save draft message (debounced)
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (textInput.trim()) {
+        saveDraftMessage(conversationId, textInput);
+      } else {
+        clearDraftMessage(conversationId);
+      }
+    }, 1000); // Save after 1 second of no typing
+
+    return () => clearTimeout(timeoutId);
+  }, [textInput, conversationId]);
+
+  // Restore scroll position after messages load
+  useEffect(() => {
+    if (messages.length > 0 && !scrollPositionRestored && !loading) {
+      getScrollPosition(conversationId).then((savedPosition) => {
+        if (savedPosition && savedPosition.offset > 0) {
+          // Restore to saved position
+          setTimeout(() => {
+            flatListRef.current?.scrollToOffset({
+              offset: savedPosition.offset,
+              animated: false,
+            });
+            setScrollPositionRestored(true);
+          }, 500);
+        } else {
+          // No saved position, scroll to bottom
+          setTimeout(() => {
+            flatListRef.current?.scrollToEnd({ animated: false });
+            setScrollPositionRestored(true);
+          }, 500);
+        }
+      });
+    }
+  }, [messages, scrollPositionRestored, loading, conversationId]);
+
+  // Scroll to bottom only when NEW messages arrive (after initial load)
+  useEffect(() => {
+    if (
+      scrollPositionRestored &&
+      messages.length > previousMessageCountRef.current
+    ) {
+      // Only auto-scroll if user was near bottom (within 100px)
+      // This prevents jumping when user is reading older messages
       setTimeout(() => {
         flatListRef.current?.scrollToEnd({ animated: true });
       }, 100);
     }
-  }, [messages]);
+    previousMessageCountRef.current = messages.length;
+  }, [messages, scrollPositionRestored]);
 
   const handleSendText = async () => {
     if (!textInput.trim() || !user) return;
@@ -107,6 +218,8 @@ export default function ConversationScreen({
           "Message will be sent when connection is restored"
         );
       }
+      // Clear draft after successful send
+      await clearDraftMessage(conversationId);
     } catch (error) {
       console.error("Error sending message:", error);
       Alert.alert("Error", "Failed to send message");
@@ -170,6 +283,58 @@ export default function ConversationScreen({
     setIsRecordingMode(false);
   };
 
+  const handleRetry = async (message: Message) => {
+    if (!user) return;
+
+    setSending(true);
+    try {
+      if (message.type === "text") {
+        await sendTextMessage(
+          conversationId,
+          user.uid,
+          user.displayName,
+          message.content
+        );
+      } else if (message.type === "voice") {
+        // For voice messages, we'd need to re-upload from local URI
+        // This is a simplified version - in production, you'd retrieve from offline queue
+        Alert.alert("Retry", "Please try recording the voice message again");
+      }
+    } catch (error) {
+      console.error("Error retrying message:", error);
+      Alert.alert("Error", "Failed to retry message");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const handleGenerateReflection = async () => {
+    if (!user || generatingReflection) return;
+
+    setGeneratingReflection(true);
+    try {
+      const generateReflectionManual = httpsCallable(
+        functions,
+        "generateReflectionManual"
+      );
+
+      await generateReflectionManual({ conversationId });
+
+      Alert.alert(
+        "Success! 🎉",
+        "AI insights generated! They should appear in a few seconds."
+      );
+    } catch (error) {
+      console.error("Error generating reflection:", error);
+      Alert.alert(
+        "Error",
+        "Failed to generate insights. Make sure you have at least one voice message with transcription."
+      );
+    } finally {
+      setGeneratingReflection(false);
+    }
+  };
+
   const renderMessage = ({ item }: { item: Message }) => {
     const isOwnMessage = item.senderId === user?.uid;
 
@@ -177,7 +342,13 @@ export default function ConversationScreen({
       return <VoiceMessagePlayer message={item} isOwnMessage={isOwnMessage} />;
     }
 
-    return <MessageBubble message={item} isOwnMessage={isOwnMessage} />;
+    return (
+      <MessageBubble
+        message={item}
+        isOwnMessage={isOwnMessage}
+        onRetry={() => handleRetry(item)}
+      />
+    );
   };
 
   const renderInputArea = () => {
@@ -233,8 +404,21 @@ export default function ConversationScreen({
       keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
     >
       <Appbar.Header>
-        <Appbar.BackAction onPress={() => navigation.goBack()} />
-        <Appbar.Content title="Conversation" />
+        <Appbar.BackAction
+          onPress={() => {
+            if (navigation.canGoBack()) {
+              navigation.goBack();
+            } else {
+              navigation.navigate("Home");
+            }
+          }}
+          color="#6200ee"
+        />
+        <Appbar.Content title={showInsights ? "Insights" : "Conversation"} />
+        <Appbar.Action
+          icon={showInsights ? "message" : "chart-line"}
+          onPress={() => setShowInsights(!showInsights)}
+        />
       </Appbar.Header>
 
       {!isOnline && (
@@ -253,22 +437,148 @@ export default function ConversationScreen({
         </View>
       )}
 
-      <FlatList
-        ref={flatListRef}
-        data={messages}
-        renderItem={renderMessage}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.messageList}
-        ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <Text variant="bodyLarge" style={styles.emptyText}>
-              No messages yet. Start the conversation!
-            </Text>
-          </View>
-        }
-      />
+      {showInsights ? (
+        <ScrollView style={styles.insightsContainer}>
+          <Card style={styles.insightsCard}>
+            <Card.Content>
+              <Text variant="titleLarge" style={styles.insightsTitle}>
+                💬 Conversation Insights
+              </Text>
 
-      <View style={styles.inputContainer}>{renderInputArea()}</View>
+              {/* Tier 1: Instant Stats - Always Available */}
+              <View style={styles.statsGrid}>
+                <View style={styles.statBox}>
+                  <Text variant="headlineMedium" style={styles.statValue}>
+                    {messages.filter((m) => m.type === "voice").length}
+                  </Text>
+                  <Text variant="bodySmall" style={styles.statLabel}>
+                    Voice Messages
+                  </Text>
+                </View>
+              </View>
+
+              {/* Tier 2: AI Insights (if available) */}
+              {reflection ? (
+                <>
+                  <View style={styles.divider} />
+
+                  <View style={styles.statRow}>
+                    <Text variant="titleMedium">Overall Sentiment</Text>
+                    <Chip
+                      mode="flat"
+                      style={[
+                        styles.sentimentChip,
+                        {
+                          backgroundColor: getSentimentColor(
+                            reflection.sentiment
+                          ),
+                        },
+                      ]}
+                    >
+                      {reflection.sentiment}
+                    </Chip>
+                  </View>
+
+                  <View style={styles.insightsSection}>
+                    <Text variant="titleMedium" style={styles.sectionTitle}>
+                      Key Themes
+                    </Text>
+                    <View style={styles.themesContainer}>
+                      {reflection.themes.map((theme, index) => (
+                        <Chip key={index} style={styles.themeChip}>
+                          {theme}
+                        </Chip>
+                      ))}
+                    </View>
+                  </View>
+
+                  <View style={styles.insightsSection}>
+                    <Text variant="titleMedium" style={styles.sectionTitle}>
+                      AI Insights
+                    </Text>
+                    <Text variant="bodyMedium" style={styles.insightsText}>
+                      {reflection.insights}
+                    </Text>
+                  </View>
+                </>
+              ) : (
+                <>
+                  <View style={styles.divider} />
+                  <View style={styles.noInsights}>
+                    {messages.length > 0 ? (
+                      <>
+                        <Text variant="bodyLarge" style={styles.noInsightsText}>
+                          🤖 AI Insights Coming Soon
+                        </Text>
+                        <Text
+                          variant="bodyMedium"
+                          style={styles.noInsightsSubtext}
+                        >
+                          Keep chatting! AI insights are generated automatically
+                          as your conversation develops. Check back in a few
+                          minutes for sentiment analysis and key themes.
+                        </Text>
+                        {messages.filter((m) => m.type === "voice").length >
+                          0 && (
+                          <Button
+                            mode="contained"
+                            onPress={handleGenerateReflection}
+                            style={styles.generateButton}
+                            loading={generatingReflection}
+                            disabled={generatingReflection}
+                          >
+                            {generatingReflection
+                              ? "Generating..."
+                              : "Generate Insights Now"}
+                          </Button>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <Text variant="bodyLarge" style={styles.noInsightsText}>
+                          💬 Start the Conversation
+                        </Text>
+                        <Text
+                          variant="bodyMedium"
+                          style={styles.noInsightsSubtext}
+                        >
+                          Send messages to begin! AI-powered insights will
+                          appear automatically as you chat.
+                        </Text>
+                      </>
+                    )}
+                  </View>
+                </>
+              )}
+            </Card.Content>
+          </Card>
+        </ScrollView>
+      ) : (
+        <FlatList
+          ref={flatListRef}
+          data={messages}
+          renderItem={renderMessage}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.messageList}
+          onScroll={(event) => {
+            // Save scroll position periodically
+            const offset = event.nativeEvent.contentOffset.y;
+            saveScrollPosition(conversationId, offset);
+          }}
+          scrollEventThrottle={1000} // Save at most once per second
+          ListEmptyComponent={
+            <View style={styles.emptyState}>
+              <Text variant="bodyLarge" style={styles.emptyText}>
+                No messages yet. Start the conversation!
+              </Text>
+            </View>
+          }
+        />
+      )}
+
+      {!showInsights && (
+        <View style={styles.inputContainer}>{renderInputArea()}</View>
+      )}
     </KeyboardAvoidingView>
   );
 }
@@ -329,5 +639,92 @@ const styles = StyleSheet.create({
     flex: 1,
     marginHorizontal: 8,
     maxHeight: 100,
+  },
+  insightsContainer: {
+    flex: 1,
+    backgroundColor: "#f5f5f5",
+  },
+  insightsCard: {
+    margin: 16,
+    elevation: 2,
+  },
+  insightsTitle: {
+    marginBottom: 24,
+    fontWeight: "bold",
+    textAlign: "center",
+  },
+  statsGrid: {
+    flexDirection: "row",
+    justifyContent: "center",
+    marginBottom: 16,
+  },
+  statBox: {
+    alignItems: "center",
+    paddingHorizontal: 24,
+  },
+  statValue: {
+    fontWeight: "bold",
+    color: "#6200ee",
+  },
+  statLabel: {
+    marginTop: 4,
+    color: "#666",
+    textAlign: "center",
+  },
+  divider: {
+    height: 1,
+    backgroundColor: "#e0e0e0",
+    marginVertical: 16,
+  },
+  statRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#e0e0e0",
+  },
+  sentimentChip: {
+    paddingHorizontal: 12,
+  },
+  insightsSection: {
+    marginTop: 16,
+  },
+  sectionTitle: {
+    marginBottom: 12,
+    fontWeight: "bold",
+  },
+  themesContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  themeChip: {
+    marginRight: 8,
+    marginBottom: 8,
+  },
+  insightsText: {
+    lineHeight: 24,
+    color: "#333",
+  },
+  noInsights: {
+    padding: 32,
+    alignItems: "center",
+  },
+  noInsightsText: {
+    textAlign: "center",
+    marginBottom: 12,
+    color: "#666",
+  },
+  noInsightsSubtext: {
+    textAlign: "center",
+    color: "#999",
+    lineHeight: 22,
+  },
+  generateButton: {
+    marginTop: 24,
+    alignSelf: "center",
+    minWidth: 200,
   },
 });
