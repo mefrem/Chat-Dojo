@@ -3,6 +3,7 @@ import { View, StyleSheet, TouchableOpacity, Animated } from "react-native";
 import { Text, Icon } from "react-native-paper";
 import { useAudioRecording } from "@/hooks/useAudioRecording";
 import { formatDuration } from "@/utils/formatTime";
+import { zenDojoTheme } from "@/themes/zenDojo";
 
 interface VoiceRecorderProps {
   onRecordingComplete: (uri: string, duration: number) => void;
@@ -90,14 +91,18 @@ export default function VoiceRecorder({
             onPress={handleCancelRecording}
             style={styles.cancelButton}
           >
-            <Icon source="close" size={24} color="#ff6b6b" />
+            <Icon source="close" size={24} color={zenDojoTheme.colors.error} />
           </TouchableOpacity>
 
           <TouchableOpacity
             onPress={handleStopRecording}
             style={styles.stopButton}
           >
-            <Icon source="send" size={28} color="#fff" />
+            <Icon
+              source="send"
+              size={28}
+              color={zenDojoTheme.colors.background}
+            />
           </TouchableOpacity>
         </View>
       </View>
@@ -110,7 +115,7 @@ export default function VoiceRecorder({
       style={styles.micButton}
       activeOpacity={0.7}
     >
-      <Icon source="microphone" size={28} color="#6200ee" />
+      <Icon source="microphone" size={28} color={zenDojoTheme.colors.primary} />
     </TouchableOpacity>
   );
 }
@@ -119,8 +124,8 @@ const styles = StyleSheet.create({
   micButton: {
     width: 48,
     height: 48,
-    borderRadius: 24,
-    backgroundColor: "#f0f0f0",
+    borderRadius: zenDojoTheme.borderRadius.full,
+    backgroundColor: zenDojoTheme.colors.accent,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -129,16 +134,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     flex: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    backgroundColor: "#fff8f8",
-    borderRadius: 24,
+    paddingHorizontal: zenDojoTheme.spacing.md,
+    paddingVertical: zenDojoTheme.spacing.sm,
+    backgroundColor: zenDojoTheme.colors.surface,
+    borderRadius: zenDojoTheme.borderRadius.full,
   },
   recordingContent: {
     flexDirection: "row",
     alignItems: "center",
     flex: 1,
-    gap: 12,
+    gap: zenDojoTheme.spacing.md,
   },
   recordingIndicator: {
     justifyContent: "center",
@@ -146,54 +151,54 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: "#ffe0e0",
+    backgroundColor: `${zenDojoTheme.colors.error}20`,
   },
   recordingDot: {
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: "#ff6b6b",
+    backgroundColor: zenDojoTheme.colors.error,
   },
   recordingInfo: {
     flex: 1,
   },
   recordingLabel: {
     fontSize: 12,
-    color: "#666",
+    color: zenDojoTheme.colors.textSecondary,
     marginBottom: 2,
   },
   duration: {
     fontSize: 20,
-    fontWeight: "bold",
-    color: "#ff6b6b",
+    fontWeight: "600",
+    color: zenDojoTheme.colors.primary,
     fontVariant: ["tabular-nums"],
   },
   recordingActions: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: zenDojoTheme.spacing.md,
   },
   cancelButton: {
     width: 40,
     height: 40,
-    borderRadius: 20,
-    backgroundColor: "#fff",
+    borderRadius: zenDojoTheme.borderRadius.full,
+    backgroundColor: zenDojoTheme.colors.surface,
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "#ff6b6b",
+    borderColor: zenDojoTheme.colors.error,
   },
   stopButton: {
     width: 48,
     height: 48,
-    borderRadius: 24,
-    backgroundColor: "#6200ee",
+    borderRadius: zenDojoTheme.borderRadius.full,
+    backgroundColor: zenDojoTheme.colors.primary,
     justifyContent: "center",
     alignItems: "center",
-    elevation: 2,
-    shadowColor: "#6200ee",
+    elevation: zenDojoTheme.elevation.low,
+    shadowColor: zenDojoTheme.colors.primary,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
   },
 });

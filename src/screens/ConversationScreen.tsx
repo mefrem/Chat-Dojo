@@ -32,6 +32,11 @@ import {
 import { uploadVoiceMessage } from "@/services/storage";
 import { Message, Reflection } from "@/types";
 import { subscribeToReflectionByConversation } from "@/services/reflection";
+import {
+  subscribeToConversationReflections,
+  subscribeToReflectionAnalysis,
+} from "@/services/personalReflections";
+import { PersonalReflection, ReflectionThemeAnalysis } from "@/types";
 import MessageBubble from "@/components/MessageBubble";
 import VoiceMessagePlayer from "@/components/VoiceMessagePlayer";
 import VoiceRecorder from "@/components/VoiceRecorder";
@@ -51,6 +56,10 @@ import {
 import { functions } from "../../firebase/config";
 import { getFunctions, httpsCallable } from "firebase/functions";
 import { Button } from "react-native-paper";
+import { zenDojoTheme } from "@/themes/zenDojo";
+import { getRandomTruthPrompt } from "@/utils/truthPrompts";
+import { getRandomReflectionPrompt } from "@/utils/reflectionPrompts";
+import ReflectionPromptDialog from "@/components/ReflectionPromptDialog";
 
 interface ConversationScreenProps {
   navigation: any;
@@ -60,19 +69,6 @@ interface ConversationScreenProps {
     };
   };
 }
-
-const getSentimentColor = (sentiment: string): string => {
-  switch (sentiment) {
-    case "positive":
-      return "#4caf50";
-    case "neutral":
-      return "#ff9800";
-    case "challenging":
-      return "#f44336";
-    default:
-      return "#9e9e9e";
-  }
-};
 
 export default function ConversationScreen({
   navigation,
@@ -99,8 +95,18 @@ export default function ConversationScreen({
     useState<boolean>(false);
   const [showScrollToBottom, setShowScrollToBottom] = useState<boolean>(false);
   const [refreshing, setRefreshing] = useState<boolean>(false);
+  const [truthPrompt] = useState<string>(getRandomTruthPrompt());
+  const [showReflectionPrompt, setShowReflectionPrompt] =
+    useState<boolean>(false);
+  const [reflectionPrompt] = useState<string>(getRandomReflectionPrompt());
+  const [conversationReflections, setConversationReflections] = useState<
+    PersonalReflection[]
+  >([]);
+  const [themeAnalysis, setThemeAnalysis] =
+    useState<ReflectionThemeAnalysis | null>(null);
   const flatListRef = useRef<FlatList>(null);
   const previousMessageCountRef = useRef<number>(0);
+  const voiceMessagesSentRef = useRef<number>(0);
 
   useEffect(() => {
     const unsubscribe = subscribeToMessages(conversationId, (msgs) => {
@@ -130,6 +136,32 @@ export default function ConversationScreen({
 
     return () => unsubscribe();
   }, [conversationId, user]);
+
+  // Subscribe to personal reflections for this conversation
+  useEffect(() => {
+    if (!user) return;
+
+    const unsubscribe = subscribeToConversationReflections(
+      user.uid,
+      conversationId,
+      (reflections) => {
+        setConversationReflections(reflections);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [conversationId, user]);
+
+  // Subscribe to reflection theme analysis
+  useEffect(() => {
+    if (!user) return;
+
+    const unsubscribe = subscribeToReflectionAnalysis(user.uid, (analysis) => {
+      setThemeAnalysis(analysis);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
 
   // Load draft message on mount
   useEffect(() => {
@@ -259,6 +291,9 @@ export default function ConversationScreen({
           downloadUrl,
           duration
         );
+
+        // Track voice message sent in this session
+        voiceMessagesSentRef.current += 1;
       } else {
         // Queue voice message for offline sending
         await addToOfflineQueue({
@@ -288,6 +323,26 @@ export default function ConversationScreen({
 
   const handleRecordingCancel = () => {
     setIsRecordingMode(false);
+  };
+
+  const handleBack = () => {
+    if (voiceMessagesSentRef.current > 0) {
+      setShowReflectionPrompt(true);
+    } else {
+      navigation.goBack();
+    }
+  };
+
+  const handleReflectionComplete = () => {
+    setShowReflectionPrompt(false);
+    voiceMessagesSentRef.current = 0;
+    navigation.goBack();
+  };
+
+  const handleReflectionSkip = () => {
+    setShowReflectionPrompt(false);
+    voiceMessagesSentRef.current = 0;
+    navigation.goBack();
   };
 
   const handleRetry = async (message: Message) => {
@@ -421,16 +476,10 @@ export default function ConversationScreen({
     >
       <Appbar.Header>
         <Appbar.BackAction
-          onPress={() => {
-            if (navigation.canGoBack()) {
-              navigation.goBack();
-            } else {
-              navigation.navigate("Home");
-            }
-          }}
-          color="#6200ee"
+          onPress={handleBack}
+          color={zenDojoTheme.colors.primary}
         />
-        <Appbar.Content title={showInsights ? "Insights" : "Conversation"} />
+        <Appbar.Content title={showInsights ? "Insights" : "The Dojo"} />
         <Appbar.Action
           icon={showInsights ? "message" : "chart-line"}
           onPress={() => setShowInsights(!showInsights)}
@@ -478,30 +527,17 @@ export default function ConversationScreen({
                 <>
                   <View style={styles.divider} />
 
-                  <View style={styles.statRow}>
-                    <Text variant="titleMedium">Overall Sentiment</Text>
-                    <Chip
-                      mode="flat"
-                      style={[
-                        styles.sentimentChip,
-                        {
-                          backgroundColor: getSentimentColor(
-                            reflection.sentiment
-                          ),
-                        },
-                      ]}
-                    >
-                      {reflection.sentiment}
-                    </Chip>
-                  </View>
-
                   <View style={styles.insightsSection}>
                     <Text variant="titleMedium" style={styles.sectionTitle}>
                       Key Themes
                     </Text>
                     <View style={styles.themesContainer}>
                       {reflection.themes.map((theme, index) => (
-                        <Chip key={index} style={styles.themeChip}>
+                        <Chip
+                          key={index}
+                          style={styles.themeChip}
+                          textStyle={styles.themeChipText}
+                        >
                           {theme}
                         </Chip>
                       ))}
@@ -566,6 +602,93 @@ export default function ConversationScreen({
                   </View>
                 </>
               )}
+
+              {/* Personal Reflections Section */}
+              <View style={styles.divider} />
+              <View style={styles.insightsSection}>
+                <Text variant="titleMedium" style={styles.sectionTitle}>
+                  Your Personal Reflections
+                </Text>
+                {conversationReflections.length > 0 ? (
+                  <>
+                    {conversationReflections.map((ref) => (
+                      <Card
+                        key={ref.id}
+                        style={styles.reflectionCard}
+                        mode="outlined"
+                      >
+                        <Card.Content>
+                          <Text
+                            variant="labelSmall"
+                            style={styles.reflectionPrompt}
+                          >
+                            {ref.prompt}
+                          </Text>
+                          <Text
+                            variant="bodyMedium"
+                            style={styles.reflectionContent}
+                            numberOfLines={2}
+                          >
+                            {ref.type === "voice"
+                              ? `🎤 Voice reflection (${Math.round(
+                                  ref.duration || 0
+                                )}s)`
+                              : ref.content}
+                          </Text>
+                          <Text
+                            variant="labelSmall"
+                            style={styles.reflectionDate}
+                          >
+                            {new Date(ref.createdAt).toLocaleDateString()}
+                          </Text>
+                        </Card.Content>
+                      </Card>
+                    ))}
+                  </>
+                ) : (
+                  <Text variant="bodyMedium" style={styles.noInsightsSubtext}>
+                    No reflections yet. You'll be prompted after your next talk.
+                  </Text>
+                )}
+              </View>
+
+              {/* Reflection Theme Analysis */}
+              {themeAnalysis && themeAnalysis.totalReflections >= 3 && (
+                <>
+                  <View style={styles.divider} />
+                  <View style={styles.insightsSection}>
+                    <Text variant="titleMedium" style={styles.sectionTitle}>
+                      Reflection Insights (Last 30 Days)
+                    </Text>
+                    <View style={styles.themesContainer}>
+                      {themeAnalysis.topThemes.map((theme, index) => (
+                        <Chip
+                          key={index}
+                          style={styles.themeChip}
+                          textStyle={styles.themeChipText}
+                        >
+                          {theme.theme} ({theme.count})
+                        </Chip>
+                      ))}
+                    </View>
+                    <Text
+                      variant="bodyMedium"
+                      style={[styles.insightsText, { marginTop: 12 }]}
+                    >
+                      {themeAnalysis.insights}
+                    </Text>
+                    <Text
+                      variant="labelSmall"
+                      style={[
+                        styles.noInsightsSubtext,
+                        { marginTop: 8, textAlign: "center" },
+                      ]}
+                    >
+                      Based on {themeAnalysis.totalReflections} reflections
+                    </Text>
+                  </View>
+                </>
+              )}
             </Card.Content>
           </Card>
         </ScrollView>
@@ -583,10 +706,10 @@ export default function ConversationScreen({
               const contentHeight = event.nativeEvent.contentSize.height;
               const layoutHeight = event.nativeEvent.layoutMeasurement.height;
               const distanceFromBottom = contentHeight - offset - layoutHeight;
-              
+
               // Show scroll-to-bottom button if scrolled up more than 100px
               setShowScrollToBottom(distanceFromBottom > 100);
-              
+
               saveScrollPosition(conversationId, offset);
             }}
             scrollEventThrottle={400} // Check scroll position ~2-3 times per second
@@ -601,24 +724,39 @@ export default function ConversationScreen({
             ListEmptyComponent={
               <View style={styles.emptyState}>
                 <Text variant="displaySmall" style={styles.emptyIcon}>
-                  💬
+                  ⚡
                 </Text>
                 <Text variant="headlineSmall" style={styles.emptyTitle}>
-                  Start Your Conversation
+                  Enter the Dojo
                 </Text>
+
+                <View style={styles.truthPromptCard}>
+                  <Text variant="bodyLarge" style={styles.truthPromptText}>
+                    {truthPrompt}
+                  </Text>
+                </View>
+
                 <Text variant="bodyMedium" style={styles.emptyText}>
-                  Break the ice with a voice message or text.{"\n"}
-                  Every great conversation starts somewhere!
+                  Speak what's real. Come alive.
                 </Text>
+
                 <View style={styles.emptyHints}>
                   <View style={styles.emptyHint}>
-                    <Icon source="microphone" size={20} color="#6200ee" />
+                    <Icon
+                      source="microphone"
+                      size={20}
+                      color={zenDojoTheme.colors.primary}
+                    />
                     <Text variant="bodySmall" style={styles.emptyHintText}>
                       Tap mic to record voice
                     </Text>
                   </View>
                   <View style={styles.emptyHint}>
-                    <Icon source="message-text" size={20} color="#6200ee" />
+                    <Icon
+                      source="message-text"
+                      size={20}
+                      color={zenDojoTheme.colors.primary}
+                    />
                     <Text variant="bodySmall" style={styles.emptyHintText}>
                       Type to send text
                     </Text>
@@ -627,7 +765,7 @@ export default function ConversationScreen({
               </View>
             }
           />
-          
+
           {/* Scroll to Bottom Button */}
           {showScrollToBottom && (
             <FAB
@@ -646,6 +784,18 @@ export default function ConversationScreen({
       {!showInsights && (
         <View style={styles.inputContainer}>{renderInputArea()}</View>
       )}
+
+      {/* Reflection Prompt Dialog */}
+      {user && (
+        <ReflectionPromptDialog
+          visible={showReflectionPrompt}
+          prompt={reflectionPrompt}
+          userId={user.uid}
+          conversationId={conversationId}
+          onComplete={handleReflectionComplete}
+          onSkip={handleReflectionSkip}
+        />
+      )}
     </KeyboardAvoidingView>
   );
 }
@@ -653,176 +803,209 @@ export default function ConversationScreen({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: zenDojoTheme.colors.background,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+    backgroundColor: zenDojoTheme.colors.background,
   },
   offlineBanner: {
-    backgroundColor: "#ff6b6b",
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    backgroundColor: zenDojoTheme.colors.error,
+    paddingVertical: zenDojoTheme.spacing.md,
+    paddingHorizontal: zenDojoTheme.spacing.md,
     alignItems: "center",
   },
   offlineText: {
     color: "#fff",
     fontSize: 12,
-    fontWeight: "bold",
+    fontWeight: "600",
   },
   uploadProgress: {
-    backgroundColor: "#4caf50",
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    backgroundColor: zenDojoTheme.colors.success,
+    paddingVertical: zenDojoTheme.spacing.md,
+    paddingHorizontal: zenDojoTheme.spacing.md,
     alignItems: "center",
   },
   uploadText: {
     color: "#fff",
     fontSize: 12,
-    fontWeight: "bold",
+    fontWeight: "600",
   },
   messageList: {
-    paddingVertical: 12,
-    paddingHorizontal: 8,
+    paddingVertical: zenDojoTheme.spacing.md,
+    paddingHorizontal: zenDojoTheme.spacing.sm,
     flexGrow: 1,
   },
   emptyState: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    padding: 40,
+    padding: zenDojoTheme.spacing.xl,
   },
   emptyText: {
     textAlign: "center",
-    color: "#666",
+    color: zenDojoTheme.colors.textSecondary,
   },
   inputContainer: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 8,
+    padding: zenDojoTheme.spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: "#e0e0e0",
-    backgroundColor: "#fff",
+    borderTopColor: zenDojoTheme.colors.border,
+    backgroundColor: zenDojoTheme.colors.surface,
   },
   textInput: {
     flex: 1,
-    marginHorizontal: 8,
+    marginHorizontal: zenDojoTheme.spacing.sm,
     maxHeight: 100,
+    backgroundColor: zenDojoTheme.colors.background,
   },
   insightsContainer: {
     flex: 1,
-    backgroundColor: "#f5f5f5",
+    backgroundColor: zenDojoTheme.colors.accent,
   },
   insightsCard: {
-    margin: 16,
-    elevation: 2,
+    margin: zenDojoTheme.spacing.md,
+    elevation: zenDojoTheme.elevation.low,
+    borderRadius: zenDojoTheme.borderRadius.lg,
   },
   insightsTitle: {
-    marginBottom: 24,
-    fontWeight: "bold",
+    marginBottom: zenDojoTheme.spacing.lg,
+    fontWeight: "600",
     textAlign: "center",
+    color: zenDojoTheme.colors.textPrimary,
   },
   statsGrid: {
     flexDirection: "row",
     justifyContent: "center",
-    marginBottom: 16,
+    marginBottom: zenDojoTheme.spacing.md,
   },
   statBox: {
     alignItems: "center",
-    paddingHorizontal: 24,
+    paddingHorizontal: zenDojoTheme.spacing.lg,
   },
   statValue: {
-    fontWeight: "bold",
-    color: "#6200ee",
+    fontWeight: "600",
+    color: zenDojoTheme.colors.primary,
   },
   statLabel: {
-    marginTop: 4,
-    color: "#666",
+    marginTop: zenDojoTheme.spacing.xs,
+    color: zenDojoTheme.colors.textSecondary,
     textAlign: "center",
   },
   divider: {
     height: 1,
-    backgroundColor: "#e0e0e0",
-    marginVertical: 16,
-  },
-  statRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 16,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#e0e0e0",
-  },
-  sentimentChip: {
-    paddingHorizontal: 12,
+    backgroundColor: zenDojoTheme.colors.divider,
+    marginVertical: zenDojoTheme.spacing.md,
   },
   insightsSection: {
-    marginTop: 16,
+    marginTop: zenDojoTheme.spacing.md,
   },
   sectionTitle: {
-    marginBottom: 12,
-    fontWeight: "bold",
+    marginBottom: zenDojoTheme.spacing.md,
+    fontWeight: "600",
+    color: zenDojoTheme.colors.textPrimary,
   },
   themesContainer: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 8,
+    gap: zenDojoTheme.spacing.sm,
   },
   themeChip: {
-    marginRight: 8,
-    marginBottom: 8,
+    marginRight: zenDojoTheme.spacing.sm,
+    marginBottom: zenDojoTheme.spacing.sm,
+    backgroundColor: zenDojoTheme.colors.primary + "20", // 20% opacity sage green
+  },
+  themeChipText: {
+    color: zenDojoTheme.colors.primary,
+    fontWeight: "600",
   },
   insightsText: {
     lineHeight: 24,
-    color: "#333",
+    color: zenDojoTheme.colors.textPrimary,
   },
   noInsights: {
-    padding: 32,
+    padding: zenDojoTheme.spacing.xl,
     alignItems: "center",
   },
   noInsightsText: {
     textAlign: "center",
-    marginBottom: 12,
-    color: "#666",
+    marginBottom: zenDojoTheme.spacing.md,
+    color: zenDojoTheme.colors.textSecondary,
   },
   noInsightsSubtext: {
     textAlign: "center",
-    color: "#999",
+    color: zenDojoTheme.colors.textDisabled,
     lineHeight: 22,
   },
   generateButton: {
-    marginTop: 24,
+    marginTop: zenDojoTheme.spacing.lg,
     alignSelf: "center",
     minWidth: 200,
   },
   scrollToBottomButton: {
     position: "absolute",
-    right: 16,
+    right: zenDojoTheme.spacing.md,
     bottom: 80,
-    backgroundColor: "#6200ee",
+    backgroundColor: zenDojoTheme.colors.primary,
   },
   emptyIcon: {
     fontSize: 48,
-    marginBottom: 16,
+    marginBottom: zenDojoTheme.spacing.md,
   },
   emptyTitle: {
-    fontWeight: "bold",
-    marginBottom: 12,
+    fontWeight: "600",
+    marginBottom: zenDojoTheme.spacing.lg,
     textAlign: "center",
+    color: zenDojoTheme.colors.textPrimary,
+  },
+  truthPromptCard: {
+    backgroundColor: zenDojoTheme.colors.surface,
+    padding: zenDojoTheme.spacing.lg,
+    borderRadius: zenDojoTheme.borderRadius.lg,
+    borderLeftWidth: 4,
+    borderLeftColor: zenDojoTheme.colors.primary,
+    marginBottom: zenDojoTheme.spacing.lg,
+    alignSelf: "stretch",
+  },
+  truthPromptText: {
+    fontStyle: "italic",
+    textAlign: "center",
+    color: zenDojoTheme.colors.textPrimary,
+    fontWeight: "500",
+    lineHeight: 28,
   },
   emptyHints: {
-    marginTop: 24,
-    gap: 16,
+    marginTop: zenDojoTheme.spacing.lg,
+    gap: zenDojoTheme.spacing.md,
   },
   emptyHint: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
-    paddingHorizontal: 16,
+    gap: zenDojoTheme.spacing.md,
+    paddingHorizontal: zenDojoTheme.spacing.md,
   },
   emptyHintText: {
-    color: "#666",
+    color: zenDojoTheme.colors.textSecondary,
+  },
+  reflectionCard: {
+    marginBottom: zenDojoTheme.spacing.md,
+    borderColor: zenDojoTheme.colors.primary + "40",
+    backgroundColor: zenDojoTheme.colors.background,
+  },
+  reflectionPrompt: {
+    color: zenDojoTheme.colors.primary,
+    fontWeight: "600",
+    marginBottom: zenDojoTheme.spacing.xs,
+  },
+  reflectionContent: {
+    color: zenDojoTheme.colors.textPrimary,
+    marginBottom: zenDojoTheme.spacing.xs,
+  },
+  reflectionDate: {
+    color: zenDojoTheme.colors.textDisabled,
+    fontSize: 11,
   },
 });

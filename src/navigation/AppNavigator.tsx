@@ -21,7 +21,22 @@ import PastReflectionsScreen from "@/screens/PastReflectionsScreen";
 // Phase 3: Matching & Connection Screens
 import ContactsScreen from "@/screens/ContactsScreen";
 
-const Stack = createNativeStackNavigator();
+// Onboarding
+import OnboardingScreen from "@/screens/OnboardingScreen";
+
+export type RootStackParamList = {
+  Login: undefined;
+  Signup: undefined;
+  Onboarding: { isNewUser?: boolean };
+  Home: undefined;
+  Conversation: { conversationId: string };
+  Settings: undefined;
+  PostConversation: { conversationId: string };
+  PastReflections: undefined;
+  Contacts: undefined;
+};
+
+const Stack = createNativeStackNavigator<RootStackParamList>();
 
 function AuthStack() {
   return (
@@ -39,6 +54,7 @@ function MainStack() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="Home" component={HomeScreen} />
+      <Stack.Screen name="Onboarding" component={OnboardingScreen} />
       <Stack.Screen name="Conversation" component={ConversationScreen} />
       <Stack.Screen name="Settings" component={SettingsScreen} />
       <Stack.Screen

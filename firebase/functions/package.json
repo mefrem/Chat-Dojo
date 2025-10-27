@@ -2,6 +2,7 @@
   "name": "chat-dojo-functions",
   "version": "1.0.0",
   "description": "Cloud Functions for Chat Dojo - AI transcription and reflections",
+  "main": "lib/index.js",
   "scripts": {
     "build": "tsc",
     "build:watch": "tsc --watch",

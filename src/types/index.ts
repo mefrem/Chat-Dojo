@@ -13,6 +13,7 @@ export interface User {
   streakDays: number;
   lastConversationDate?: string; // YYYY-MM-DD format for streak tracking
   partnerCode: string; // Unique code for direct matching (e.g., "DOJO-A7B3X")
+  hasSeenOnboarding?: boolean; // Track if user has completed onboarding
 }
 
 // Conversation document
@@ -127,4 +128,30 @@ export interface DirectMatchRequest {
   createdAt: number;
   status: "pending" | "accepted" | "declined" | "expired";
   conversationId?: string;
+}
+
+// Personal Reflection document (Post-Talk Self-Reflection)
+export interface PersonalReflection {
+  id: string;
+  userId: string;
+  conversationId: string;
+  prompt: string;
+  content: string;
+  type: "voice" | "text";
+  voiceUrl?: string;
+  duration?: number;
+  transcription?: string;
+  createdAt: number;
+}
+
+// Reflection Theme Analysis (AI-powered pattern detection)
+export interface ReflectionThemeAnalysis {
+  id: string;
+  userId: string;
+  analyzedAt: number;
+  totalReflections: number;
+  dateRange: { start: number; end: number };
+  topThemes: Array<{ theme: string; count: number }>;
+  insights: string;
+  emotionalTone: string;
 }

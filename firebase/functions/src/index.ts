@@ -29,6 +29,13 @@ export {
 } from "./pushNotifications";
 export { sendConversationReminders, sendManualReminder } from "./reminders";
 
+// Personal Reflection Analysis
+export {
+  transcribeReflectionVoice,
+  analyzePersonalReflections,
+  scheduledReflectionAnalysis,
+} from "./reflectionAnalysis";
+
 // Health check function
 export const healthCheck = functions.https.onRequest((request, response) => {
   response.json({

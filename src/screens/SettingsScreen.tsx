@@ -12,7 +12,8 @@ import {
   Snackbar,
 } from "react-native-paper";
 import { useAuth } from "@/contexts/AuthContext";
-import { getUserDoc, updateTimeCommitment } from "@/services/user";
+import { getUserDoc } from "@/services/user";
+import { zenDojoTheme } from "@/themes/zenDojo";
 import { User } from "@/types";
 
 // Conditionally import clipboard (only works in dev builds, not Expo Go)
@@ -31,11 +32,6 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
   const { user, signOut } = useAuth();
   const [loading, setLoading] = useState<boolean>(false);
   const [userDoc, setUserDoc] = useState<User | null>(null);
-  const [timeCommitmentDialogVisible, setTimeCommitmentDialogVisible] =
-    useState(false);
-  const [selectedTimeCommitment, setSelectedTimeCommitment] = useState<
-    "5min" | "15min" | "30min" | undefined
-  >(undefined);
   const [snackbarVisible, setSnackbarVisible] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState("");
 
@@ -51,7 +47,6 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
       const doc = await getUserDoc(user.uid);
       if (doc) {
         setUserDoc(doc);
-        setSelectedTimeCommitment(doc.timeCommitment);
       }
     } catch (error) {
       console.error("Error loading user doc:", error);
@@ -71,21 +66,6 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
         );
       }
       setSnackbarVisible(true);
-    }
-  };
-
-  const handleSaveTimeCommitment = async () => {
-    if (!user || !selectedTimeCommitment) return;
-
-    try {
-      await updateTimeCommitment(user.uid, selectedTimeCommitment);
-      setTimeCommitmentDialogVisible(false);
-      setSnackbarMessage("Time commitment updated!");
-      setSnackbarVisible(true);
-      await loadUserDoc();
-    } catch (error) {
-      console.error("Error updating time commitment:", error);
-      Alert.alert("Error", "Failed to update time commitment");
     }
   };
 
@@ -123,7 +103,7 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
               navigation.navigate("Home");
             }
           }}
-          color="#6200ee"
+          color={zenDojoTheme.colors.primary}
         />
         <Appbar.Content title="Settings" />
       </Appbar.Header>
@@ -166,16 +146,6 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
             onPress={handleCopyPartnerCode}
           />
           <List.Item
-            title="Time Commitment"
-            description={
-              userDoc?.timeCommitment
-                ? `${userDoc.timeCommitment} per conversation`
-                : "Not set - tap to choose"
-            }
-            left={(props) => <List.Icon {...props} icon="clock-outline" />}
-            onPress={() => setTimeCommitmentDialogVisible(true)}
-          />
-          <List.Item
             title="Current Streak"
             description={`${userDoc?.streakDays || 0} days 🔥`}
             left={(props) => <List.Icon {...props} icon="fire" />}
@@ -210,36 +180,6 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
           </Button>
         </View>
       </ScrollView>
-
-      <Portal>
-        <Dialog
-          visible={timeCommitmentDialogVisible}
-          onDismiss={() => setTimeCommitmentDialogVisible(false)}
-        >
-          <Dialog.Title>Time Commitment</Dialog.Title>
-          <Dialog.Content>
-            <Text variant="bodyMedium" style={{ marginBottom: 16 }}>
-              How much time can you commit to each conversation?
-            </Text>
-            <RadioButton.Group
-              onValueChange={(value) =>
-                setSelectedTimeCommitment(value as "5min" | "15min" | "30min")
-              }
-              value={selectedTimeCommitment || ""}
-            >
-              <RadioButton.Item label="5 minutes" value="5min" />
-              <RadioButton.Item label="15 minutes" value="15min" />
-              <RadioButton.Item label="30 minutes" value="30min" />
-            </RadioButton.Group>
-          </Dialog.Content>
-          <Dialog.Actions>
-            <Button onPress={() => setTimeCommitmentDialogVisible(false)}>
-              Cancel
-            </Button>
-            <Button onPress={handleSaveTimeCommitment}>Save</Button>
-          </Dialog.Actions>
-        </Dialog>
-      </Portal>
 
       <Snackbar
         visible={snackbarVisible}

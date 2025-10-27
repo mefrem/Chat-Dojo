@@ -5,11 +5,13 @@ A voice-first messaging app for meaningful conversations with AI-powered insight
 ## 🚀 Quick Setup (5 minutes)
 
 ### Prerequisites
+
 - Node.js 18+
 - iOS Simulator (Mac) or Android Emulator
 - Firebase account (free tier works)
 
 ### 1. Install Dependencies
+
 ```bash
 cd chat-dojo
 npm install
@@ -24,6 +26,7 @@ npm install
    - Storage → Production mode
 3. **Get Config**: Project Settings → General → Add Web App → Copy config
 4. **Update `.env` file** in chat-dojo root:
+
 ```bash
 FIREBASE_API_KEY=your_api_key_here
 FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
@@ -34,6 +37,7 @@ FIREBASE_APP_ID=1:123456789:web:abc123
 ```
 
 ### 3. Deploy Security Rules
+
 ```bash
 npm install -g firebase-tools
 firebase login
@@ -42,6 +46,7 @@ firebase deploy --only firestore:rules,storage:rules
 ```
 
 ### 4. Run the App
+
 ```bash
 # For iOS simulator (recommended)
 npx expo run:ios
@@ -76,7 +81,8 @@ npx expo start
 
 **"Can't find module"**: Clear cache with `npx expo start -c`
 
-**Metro Bundler Issues**: 
+**Metro Bundler Issues**:
+
 ```bash
 rm -rf ~/.expo/native-modules-cache
 npx expo start -c
@@ -113,6 +119,7 @@ chat-dojo/
 ## 📞 Need Help?
 
 Check the Firebase Console for real-time errors:
+
 - **Firestore**: Console → Firestore Database → Data
 - **Auth**: Console → Authentication → Users
 - **Logs**: Console → Functions → Logs (if using AI features)

@@ -155,5 +155,17 @@ export async function getUserDoc(userId: string): Promise<User | null> {
     streakDays: data.streakDays || 0,
     lastConversationDate: data.lastConversationDate,
     partnerCode: data.partnerCode,
+    hasSeenOnboarding: data.hasSeenOnboarding || false,
   };
+}
+
+/**
+ * Update user document with partial data
+ */
+export async function updateUserDoc(
+  userId: string,
+  updates: Partial<User>
+): Promise<void> {
+  const userRef = doc(db, "users", userId);
+  await updateDoc(userRef, updates);
 }

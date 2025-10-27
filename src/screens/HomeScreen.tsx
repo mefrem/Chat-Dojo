@@ -51,6 +51,9 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
   useEffect(() => {
     if (!user) return;
 
+    // Check if user needs onboarding
+    checkOnboarding();
+
     // Subscribe to conversations
     const unsubConversations = subscribeToConversations(user.uid, (convs) => {
       // Filter for active conversations only
@@ -72,6 +75,19 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
       unsubContacts();
     };
   }, [user]);
+
+  const checkOnboarding = async () => {
+    if (!user) return;
+    try {
+      const userDoc = await getUserDoc(user.uid);
+      if (userDoc && !userDoc.hasSeenOnboarding) {
+        // Navigate to onboarding for new users
+        navigation.navigate("Onboarding", { isNewUser: true });
+      }
+    } catch (error) {
+      console.error("Error checking onboarding:", error);
+    }
+  };
 
   const loadStreakData = async () => {
     if (!user) return;
@@ -226,28 +242,50 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
   const renderSkeleton = () => (
     <View style={styles.container}>
       <Appbar.Header>
-        <Appbar.Content title="Chat Dojo" />
+        <Appbar.Content title="Talk Dojo" />
         <Appbar.Action icon="account-cog" onPress={() => {}} disabled />
       </Appbar.Header>
 
       <ScrollView style={styles.scrollView}>
         {/* Skeleton for Find Partner Section */}
         <View style={styles.findPartnerSection}>
-          <View style={[styles.skeletonText, { width: 200, height: 24, alignSelf: 'center' }]} />
+          <View
+            style={[
+              styles.skeletonText,
+              { width: 200, height: 24, alignSelf: "center" },
+            ]}
+          />
           <View style={[styles.skeletonButton, { marginTop: 16 }]} />
         </View>
 
         {/* Skeleton for Conversations Section */}
         <View style={styles.conversationsSection}>
-          <View style={[styles.skeletonText, { width: 180, height: 20, marginBottom: 16 }]} />
+          <View
+            style={[
+              styles.skeletonText,
+              { width: 180, height: 20, marginBottom: 16 },
+            ]}
+          />
           {[1, 2, 3].map((_, index) => (
-            <Card key={index} style={[styles.conversationCard, styles.skeletonCard]}>
+            <Card
+              key={index}
+              style={[styles.conversationCard, styles.skeletonCard]}
+            >
               <Card.Content>
                 <View style={styles.conversationHeader}>
-                  <View style={[styles.skeletonText, { width: 120, height: 18 }]} />
-                  <View style={[styles.skeletonText, { width: 60, height: 14 }]} />
+                  <View
+                    style={[styles.skeletonText, { width: 120, height: 18 }]}
+                  />
+                  <View
+                    style={[styles.skeletonText, { width: 60, height: 14 }]}
+                  />
                 </View>
-                <View style={[styles.skeletonText, { width: '80%', height: 16, marginTop: 8 }]} />
+                <View
+                  style={[
+                    styles.skeletonText,
+                    { width: "80%", height: 16, marginTop: 8 },
+                  ]}
+                />
               </Card.Content>
             </Card>
           ))}
@@ -263,7 +301,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
   return (
     <View style={styles.container}>
       <Appbar.Header>
-        <Appbar.Content title="Chat Dojo" />
+        <Appbar.Content title="Talk Dojo" />
         <Appbar.Action
           icon="account-cog"
           onPress={() => navigation.navigate("Settings")}
@@ -302,7 +340,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
         {/* Find Partner Section */}
         <View style={styles.findPartnerSection}>
           <Text variant="headlineMedium" style={styles.sectionTitle}>
-            Start a Conversation
+            Enter the Dojo
           </Text>
           <Button
             mode="contained"

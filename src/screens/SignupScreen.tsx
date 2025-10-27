@@ -14,6 +14,7 @@ import {
   isValidPassword,
   isValidDisplayName,
 } from "@/utils/validation";
+import { zenDojoTheme } from "@/themes/zenDojo";
 
 interface SignupScreenProps {
   navigation: any;
@@ -69,11 +70,14 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.content}>
-          <Text variant="displaySmall" style={styles.title}>
-            Create Account
+          <Text variant="displayLarge" style={styles.icon}>
+            ⚡
           </Text>
-          <Text variant="titleMedium" style={styles.subtitle}>
-            Join Chat Dojo
+          <Text variant="displayMedium" style={styles.title}>
+            TALK DOJO
+          </Text>
+          <Text variant="bodyLarge" style={styles.subtitle}>
+            Speak truth. Come alive.
           </Text>
 
           <TextInput
@@ -147,36 +151,46 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: zenDojoTheme.colors.background,
   },
   scrollContent: {
     flexGrow: 1,
     justifyContent: "center",
   },
   content: {
-    padding: 24,
+    padding: zenDojoTheme.spacing.xl,
+  },
+  icon: {
+    textAlign: "center",
+    marginBottom: zenDojoTheme.spacing.md,
   },
   title: {
     textAlign: "center",
-    marginBottom: 8,
-    fontWeight: "bold",
+    marginBottom: zenDojoTheme.spacing.md,
+    fontWeight: "700",
+    letterSpacing: 3,
+    color: zenDojoTheme.colors.textPrimary,
   },
   subtitle: {
     textAlign: "center",
-    marginBottom: 32,
-    color: "#666",
+    marginBottom: zenDojoTheme.spacing.xl,
+    color: zenDojoTheme.colors.textPrimary,
+    fontWeight: "600",
+    lineHeight: 28,
   },
   input: {
-    marginBottom: 16,
+    marginBottom: zenDojoTheme.spacing.md,
+    backgroundColor: zenDojoTheme.colors.surface,
   },
   button: {
-    marginTop: 8,
-    paddingVertical: 6,
+    marginTop: zenDojoTheme.spacing.md,
+    paddingVertical: zenDojoTheme.spacing.xs,
+    borderRadius: zenDojoTheme.borderRadius.md,
   },
   loginContainer: {
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    marginTop: 24,
+    marginTop: zenDojoTheme.spacing.lg,
   },
 });

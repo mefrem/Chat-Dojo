@@ -1,0 +1,14 @@
+# Ignore all node_modules except the ones we need
+node_modules/
+
+# Ignore source files (only deploy compiled JS)
+src/
+*.ts
+tsconfig.json
+
+# Ignore development files
+*.log
+.env
+.env.local
+README.md
+

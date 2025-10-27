@@ -146,6 +146,30 @@ service cloud.firestore {
       allow delete: if isAuthenticated() && 
         (isOwner(resource.data.fromUserId) || isOwner(resource.data.toUserId));
     }
+    
+    // Personal Reflections collection (Post-Talk Self-Reflection)
+    match /personalReflections/{reflectionId} {
+      // Users can only read their own reflections
+      allow read: if isAuthenticated() && isOwner(resource.data.userId);
+      
+      // Users can create their own reflections
+      allow create: if isAuthenticated() && isOwner(request.resource.data.userId);
+      
+      // Users can update their own reflections
+      allow update: if isAuthenticated() && isOwner(resource.data.userId);
+      
+      // Users can delete their own reflections
+      allow delete: if isAuthenticated() && isOwner(resource.data.userId);
+    }
+    
+    // Reflection Analysis collection (AI-powered theme analysis)
+    match /reflectionAnalysis/{analysisId} {
+      // Users can only read their own analysis
+      allow read: if isAuthenticated() && isOwner(resource.data.userId);
+      
+      // Only Cloud Functions can write analysis
+      allow create, update, delete: if false;
+    }
   }
 }
 

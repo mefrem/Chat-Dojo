@@ -8,6 +8,7 @@ import {
 import { Text, Icon } from "react-native-paper";
 import { Message } from "@/types";
 import { formatMessageTime } from "@/utils/formatTime";
+import { zenDojoTheme } from "@/themes/zenDojo";
 
 interface MessageBubbleProps {
   message: Message;
@@ -66,7 +67,12 @@ export default function MessageBubble({
           </Text>
           {isOwnMessage && (
             <>
-              {isUploading && <ActivityIndicator size="small" color="#999" />}
+              {isUploading && (
+                <ActivityIndicator
+                  size="small"
+                  color={zenDojoTheme.colors.textDisabled}
+                />
+              )}
               {isFailed && (
                 <TouchableOpacity
                   onPress={onRetry}
@@ -77,7 +83,11 @@ export default function MessageBubble({
                     Failed
                   </Text>
                   {onRetry && (
-                    <Icon source="reload" size={14} color="#f44336" />
+                    <Icon
+                      source="reload"
+                      size={14}
+                      color={zenDojoTheme.colors.error}
+                    />
                   )}
                 </TouchableOpacity>
               )}
@@ -85,7 +95,11 @@ export default function MessageBubble({
                 <Icon
                   source={statusIcon}
                   size={14}
-                  color={message.status === "read" ? "#4fc3f7" : "#999"}
+                  color={
+                    message.status === "read"
+                      ? zenDojoTheme.colors.primary
+                      : zenDojoTheme.colors.textDisabled
+                  }
                 />
               )}
             </>
@@ -98,8 +112,8 @@ export default function MessageBubble({
 
 const styles = StyleSheet.create({
   container: {
-    marginVertical: 4,
-    marginHorizontal: 12,
+    marginVertical: zenDojoTheme.spacing.xs,
+    marginHorizontal: zenDojoTheme.spacing.md,
   },
   ownMessageContainer: {
     alignItems: "flex-end",
@@ -109,41 +123,42 @@ const styles = StyleSheet.create({
   },
   bubble: {
     maxWidth: "80%",
-    borderRadius: 16,
-    padding: 12,
+    borderRadius: zenDojoTheme.borderRadius.lg,
+    padding: zenDojoTheme.spacing.md,
   },
   ownMessageBubble: {
-    backgroundColor: "#6200ee",
+    backgroundColor: zenDojoTheme.colors.messageSent,
   },
   otherMessageBubble: {
-    backgroundColor: "#e0e0e0",
+    backgroundColor: zenDojoTheme.colors.messageReceived,
   },
   senderName: {
-    fontWeight: "bold",
-    marginBottom: 4,
-    color: "#333",
+    fontWeight: "600",
+    marginBottom: zenDojoTheme.spacing.xs,
+    color: zenDojoTheme.colors.textPrimary,
   },
   messageText: {
     fontSize: 16,
-    color: "#fff",
+    color: zenDojoTheme.colors.background,
   },
   footer: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: 4,
-    gap: 4,
+    marginTop: zenDojoTheme.spacing.xs,
+    gap: zenDojoTheme.spacing.xs,
   },
   timestamp: {
-    color: "#ddd",
+    color: zenDojoTheme.colors.background,
+    opacity: 0.7,
     fontSize: 11,
   },
   failedContainer: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    gap: zenDojoTheme.spacing.xs,
   },
   failedText: {
-    color: "#f44336",
+    color: zenDojoTheme.colors.error,
     fontSize: 11,
   },
 });

@@ -4,6 +4,7 @@ import { Text, Icon, ProgressBar, ActivityIndicator } from "react-native-paper";
 import { Message } from "@/types";
 import { useAudioPlayback } from "@/hooks/useAudioPlayback";
 import { formatDuration, formatMessageTime } from "@/utils/formatTime";
+import { zenDojoTheme } from "@/themes/zenDojo";
 import {
   savePlaybackPosition,
   getPlaybackPosition,
@@ -212,10 +213,10 @@ const styles = StyleSheet.create({
     minWidth: 200,
   },
   ownMessageBubble: {
-    backgroundColor: "#6200ee",
+    backgroundColor: zenDojoTheme.colors.messageSent,
   },
   otherMessageBubble: {
-    backgroundColor: "#e0e0e0",
+    backgroundColor: zenDojoTheme.colors.messageReceived,
   },
   senderName: {
     fontWeight: "bold",
